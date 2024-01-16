@@ -8,6 +8,7 @@ project(<OZU_PACKAGE_NAME>)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+        ozurover_messages
         roscpp
         std_msgs
 )
@@ -103,7 +104,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
         #  INCLUDE_DIRS include
-        #  LIBRARIES neo6m-ros
+        #  LIBRARIES 
         #  CATKIN_DEPENDS roscpp std_msgs
         #  DEPENDS system_lib
 )
@@ -128,6 +129,10 @@ include_directories(
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_executable(queue_node src/queue.cpp)
+target_link_libraries(queue_node ${catkin_LIBRARIES})
+add_dependencies(queue_node ozurover_messages)
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
