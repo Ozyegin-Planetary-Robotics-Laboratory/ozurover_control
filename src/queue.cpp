@@ -11,6 +11,7 @@ struct QueueElement {
 class QueueNode {
 private:
     std::deque<QueueElement> queue;
+    QueueElement last_element;
     ros::NodeHandle nh;
     ros::ServiceServer abort_service;
     ros::ServiceServer queue_service;
