@@ -132,7 +132,6 @@ include_directories(
 
 add_executable(queue_node src/queue.cpp)
 target_link_libraries(queue_node ${catkin_LIBRARIES})
-add_dependencies(queue_node ozurover_messages)
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
