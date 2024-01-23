@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
         ozurover_messages
         roscpp
         std_msgs
+        
 )
 
 ## System dependencies are found with CMake's conventions
