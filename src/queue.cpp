@@ -86,11 +86,11 @@ private:
 
 public:
     QueueNode() {
-        abort_service = nh.advertiseService("abort", &QueueNode::abort, this);
-        queue_service = nh.advertiseService("enqueue", &QueueNode::enqueue, this);
-        dequeue_service = nh.advertiseService("dequeue", &QueueNode::dequeue, this);
-        h_push_service = nh.advertiseService("history_push", &QueueNode::h_push, this);
-        h_pop_service = nh.advertiseService("history_pop", &QueueNode::h_pop, this);
+        abort_service = nh.advertiseService("ares/goal/abort", &QueueNode::abort, this);
+        queue_service = nh.advertiseService("ares/goal/enqueue", &QueueNode::enqueue, this);
+        dequeue_service = nh.advertiseService("ares/goal/dequeue", &QueueNode::dequeue, this);
+        h_push_service = nh.advertiseService("ares/goal/history_push", &QueueNode::h_push, this);
+        h_pop_service = nh.advertiseService("ares/goal/history_pop", &QueueNode::h_pop, this);
     }
 
     void init() {
