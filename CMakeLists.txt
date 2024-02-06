@@ -132,7 +132,11 @@ include_directories(
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(queue_node src/queue.cpp)
+add_executable(pathfinding_node src/pathfinder.cpp)
+
 target_link_libraries(queue_node ${catkin_LIBRARIES})
+target_link_libraries(pathfinding_node ${catkin_LIBRARIES})
+
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
