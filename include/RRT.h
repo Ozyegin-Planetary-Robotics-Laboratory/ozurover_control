@@ -6,6 +6,8 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Path.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 
 using namespace std;
 
@@ -93,18 +95,45 @@ nav_msgs::Path RRT::getPath() {
     path.header.stamp = ros::Time::now();
     path.header.frame_id = "map";
 
-
     int currentIndex = nodes.size() - 1;
 
+
+    //Bu satıra dikkat!!!!
+    path.poses.push_back(goal);
+    
+    // Iterate from the goal back to the start
     while (currentIndex != 0) {
-        path.poses.push_back(nodes[currentIndex]);
+        geometry_msgs::PoseStamped current_pose = nodes[currentIndex];
+
+
+        // Calculates the direction from the current pose to the next pose
+        geometry_msgs::PoseStamped next_pose = nodes[parentIndices[currentIndex]];
+        double dx = current_pose.pose.position.x - next_pose.pose.position.x;
+        double dy = current_pose.pose.position.y - next_pose.pose.position.y;
+        double yaw = atan2(dy, dx);
+
+        // Convert yaw to a quaternion
+        tf2::Quaternion quaternion;
+        quaternion.setRPY(0, 0, yaw);
+
+        // Set the orientation of the current pose
+        next_pose.pose.orientation.x = quaternion.getX();
+        next_pose.pose.orientation.y = quaternion.getY();
+        next_pose.pose.orientation.z = quaternion.getZ();
+        next_pose.pose.orientation.w = quaternion.getW();
+       
+        // Add the current pose to the path
+        path.poses.push_back(next_pose);
+
         currentIndex = parentIndices[currentIndex];
     }
 
-    path.poses.push_back(start);
-    reverse(path.poses.begin(), path.poses.end());
+    // Reverse the path to make it start from the beginning
+    std::reverse(path.poses.begin(), path.poses.end());
+
     return path;
 }
+
 
 
 /* void RRT::generateRRT(int iterations) {

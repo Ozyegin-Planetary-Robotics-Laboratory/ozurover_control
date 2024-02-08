@@ -59,16 +59,21 @@ private:
             geometry_msgs::PoseStamped nearestNode = rrt.nodes[nearestIndex];
             geometry_msgs::PoseStamped newNode = rrt.newPose(nearestNode, randomPoseResult);
 
-            if (!isCollisionDetected(newNode)) {    
-            
-                rrt.nodes.push_back(newNode);
+            if (!isCollisionDetected(newNode)) {   
+
+            // Check if the new node is close to the goal 
+            if (rrt.distance(newNode, rrt.goal) < rrt.stepSize) {
+                int nearestIndex = rrt.nearestNeighborIndex(req.goal);
+                rrt.nodes.push_back(req.goal);
                 rrt.parentIndices.push_back(nearestIndex);
 
-                // Check if the new node is close to the goal
-            if (rrt.distance(newNode, rrt.goal) < rrt.stepSize) {
                 // If close to the goal, break the loop
                 break;
             }
+            
+            rrt.nodes.push_back(newNode);
+            rrt.parentIndices.push_back(nearestIndex);
+               
         }
       
     }
