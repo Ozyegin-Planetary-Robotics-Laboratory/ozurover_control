@@ -50,7 +50,7 @@ private:
     
     bool pathfindServiceCallback(ozurover_messages::Pathfind::Request& req, ozurover_messages::Pathfind::Response& res) {
        
-    RRT rrt(req.rover, req.goal, 0, 0, 30, 30, 0.3);
+    RRT rrt(req.rover, req.goal, -30, -30, 30, 30, 0.3);
     
          for (int i = 0; i < 30000; ++i) {
             geometry_msgs::PoseStamped randomPoseResult = rrt.randomPose();
