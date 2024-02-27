@@ -90,7 +90,7 @@ public:
         // Advertise pathfinding service
 
         obstacle_map_sub_ = nh.subscribe("ares/map/obstacles", 1, &PathfindingNode::obstacleGridCallback, this);
-        pathfinding_service = nh.advertiseService("pathfind", &PathfindingNode::pathfindServiceCallback, this);
+        pathfinding_service = nh.advertiseService("ares/pathfind", &PathfindingNode::pathfindServiceCallback, this);
     }
 
     void init() {
