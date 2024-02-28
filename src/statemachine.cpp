@@ -20,6 +20,8 @@
 #include <ozurover_messages/AddMarker.h>
 #include <ozurover_messages/FollowPathAction.h>
 #include <ozurover_messages/Steer.h>
+#include <ozurover_messages/GPSLocalize.h>
+#include "occupancy_utils.hpp"
 
 #include <thread>
 
@@ -113,6 +115,7 @@ protected:
   ros::ServiceClient gc_; // Queue client.
   ros::ServiceClient lc_; // GNSS to local coords client.
   ros::ServiceServer as_; // Abort server.
+  ros::Subscriber mapSub_;
   ros::Subscriber gnssSub_;
   ros::Subscriber markerSub_;
   tf2_ros::Buffer _tfBuffer;
@@ -123,8 +126,10 @@ protected:
   nav_msgs::Path path_;
   ozurover_messages::Marker goal_;
   ozurover_messages::GPS rover_gps_;
-  geometry_messages::PoseStamped rover_pose_;
+  geometry_msgs::PoseStamped rover_pose_;
   std::map<uint16_t, geometry_msgs::PoseStamped> markers_;  
+  nav_msgs::OccupancyGrid::ConstPtr obstacle_grid;
+  OccupancyUtils occupancyUtils_;
 
   void gnssCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     rover_gps_.latitude = msg->latitude;
@@ -133,28 +138,26 @@ protected:
   }
 
   geometry_msgs::PoseStamped processMarkerPoses(const geometry_msgs::PoseStamped &msg_prev, const geometry_msgs::PoseStamped &msg_new) {
-    if (markers_.find(msg->id) != markers_.end()) {
-      geometry_msgs::PoseStamped avg;
-      avg.pose.position.x = (msg_prev.pose.position.x + msg_new.pose.position.x) / 2.0f;
-      avg.pose.position.y = (msg_prev.pose.position.y + msg_new.pose.position.y) / 2.0f;
-      avg.pose.position.z = (msg_prev.pose.position.z + msg_new.pose.position.z) / 2.0f;
-      markers_[msg->id] = avg;
-    }
-    return markers_[msg->id] = msg->pose;
+    geometry_msgs::PoseStamped avg;
+    avg.pose.position.x = (msg_prev.pose.position.x + msg_new.pose.position.x) / 2.0f;
+    avg.pose.position.y = (msg_prev.pose.position.y + msg_new.pose.position.y) / 2.0f;
+    avg.pose.position.z = (msg_prev.pose.position.z + msg_new.pose.position.z) / 2.0f;
+    return avg;
   }
 
   void markerCallback(const ozurover_messages::Marker::ConstPtr& msg) {
-    markers_[msg->id] = processMarkerPoses(markers_[msg->id], msg->pose);
+    markers_[msg->type] = processMarkerPoses(markers_[msg->type], msg->pose);
   }
 
   bool checkNewTask() {
-    ozurover_messages::GetMarker goalN;
+    ozurover_messages::GetMarker goalN_;
     if (gc_.call(goalN_)) {
       ozurover_messages::GPSLocalize lreq;
-      lreq.reuest.gps.latitude = goalN.response.gps.latitude;
-      lreq.reuest.gps.longitude = goalN.response.gps.longitude;
-      if (lc_.call(lreq);) {
-        goal_ = lreq.response.marker;  
+      lreq.request.gps.latitude = goalN_.response.gps.latitude;
+      lreq.request.gps.longitude = goalN_.response.gps.longitude;
+      if (lc_.call(lreq)) {
+        goal_.type = goalN_.response.type;
+        goal_.pose = lreq.response.pose;  
         return true;
       }
     }
@@ -162,9 +165,8 @@ protected:
   }
 
   bool checkPathCollisions(const nav_msgs::Path &path) {
-    /* Implement path collision checking here. */
-
-    return false;
+    occupancyUtils_.openOccupancyGrid(obstacle_grid);
+    return occupancyUtils_.isCollisionCourse(path);
   }
 
   bool getPathFor(const geometry_msgs::PoseStamped &goal) {
@@ -185,11 +187,16 @@ protected:
   }
 
   void visitCurrentGoal() {
-    while (!getPathFor(goal_)) rate.sleep();
+    ros::Rate rate(1.0);
+    while (!getPathFor(goal_.pose)) rate.sleep();
     ozurover_messages::FollowPathGoal goal;
     goal.path = path_;
     state_ = VISITING;
     ac_.sendGoal(goal);
+  }
+
+  void mapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg) {
+    obstacle_grid = msg;
   }
 
   void updateInternalData() {
@@ -215,10 +222,12 @@ public:
     _tfListener(_tfBuffer),
     ac_("ares/follow_path", true),
     as_(nh_.advertiseService("ares/abort", &StateMachineNode::abortCallback, this)),
+    _spinner(2)
   {
     pc_ = nh_.serviceClient<ozurover_messages::Pathfind>("ares/pathfind");
     gc_ = nh_.serviceClient<ozurover_messages::GetMarker>("ares/goal/dequeue");
     lc_ = nh_.serviceClient<ozurover_messages::Abort>("ares/localize");
+    mapSub_ = nh_.subscribe("ares/map/obstacles", 1, &StateMachineNode::mapCallback, this);
     gnssSub_ = nh_.subscribe("ares/gps", 1, &StateMachineNode::gnssCallback, this);
     markerSub_ = nh_.subscribe("ares/goal/marker", 1, &StateMachineNode::markerCallback, this);
     ac_.waitForServer();
@@ -239,10 +248,10 @@ public:
           }
           continue;
         case VISITING: // Moving towards the given coordinates
-          actionlib::SimpleClientGoalState::StateEnum tracerState = ac_.getState();
-          switch (tracerState){
+          {actionlib::SimpleClientGoalState tracerState = ac_.getState();
+          switch (tracerState.state_) {
             case actionlib::SimpleClientGoalState::StateEnum::SUCCEEDED:
-              if (goal.id == 1002) { 
+              if (goal_.type == 1002) { 
                 state_ = IDLE; // If goal has no visual indicator, wrap up.
               } else {
                 state_ = EXPLORING; // If goal has visual indicator, start exploring.
@@ -251,45 +260,32 @@ public:
             case actionlib::SimpleClientGoalState::StateEnum::ABORTED:
               visitCurrentGoal(); // Retry visiting
               break;
-            case: actionlib::SimpleClientGoalState::StateEnum::ACTIVE:
-              if ();
+            case actionlib::SimpleClientGoalState::StateEnum::ACTIVE:
+              if (checkPathCollisions(path_)) {
+                visitCurrentGoal();
+              }
               break;
             default:
               break;
-          }
+          }}
           break;
         case EXPLORING: // Roaming around visited area until marker is found.
-          actionlib::SimpleClientGoalState::StateEnum tracerState = ac_.getState();
+          {actionlib::SimpleClientGoalState tracerState = ac_.getState();
           ros::Rate rate(1.0f);
-          while (markers_.find(goal_.id) == markers_.end()) {
+          while (markers_.find(goal_.type) == markers_.end()) {
             /* Implement protocol here. */
             rate.sleep();
           }
-          state_ = CONVERGING;
+          state_ = CONVERGING;}
         case CONVERGING:
           /* Implement convergence protocol. */
-          actionlib::SimpleClientGoalState::StateEnum tracerState = ac_.getState();
-          geometry_msgs::PoseStamped markerGoal = markers_[goal_.id].pose;
-          ros::Rate rate(5.0f);
-          while (ros::ok()) {
-            tracerState = ac_.getState();
-            if (ac_.isPreemptRequested()) {
-              ac_.cancelAllGoals();
-              state_ = ABORTING;
-              break;
-            }
-            if (state_ == ABORTING) break;
-            if (getPathFor(markerGoal)) {
-              ozurover_messages::FollowPathGoal goal;
-              goal.path = path_;
-              ac_.sendGoal(goal);
-              break;
-            }
-            rate.sleep();
-          }
+          {actionlib::SimpleClientGoalState tracerState = ac_.getState();
+          geometry_msgs::PoseStamped markerGoal = markers_.find(goal_.type)->second;
+          ros::Rate rate(5.0f);}
           break;
         case ABORTING:
           /* Implement abort protocol. */
+          ac_.cancelAllGoals();
           state_ = IDLE;
           break;
         default:
