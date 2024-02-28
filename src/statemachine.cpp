@@ -34,18 +34,22 @@ enum State {
 };
 
 enum LED {
-  RED,
-  GREEN,
-  BLUE
+  RED = 398,
+  GREEN = 298,
+  BLUE = 389
 };
 
 class LightController {
 protected:
-  const int RED_PIN = 398; // GPIO5, 29
-  const int GREEN_PIN = 298; // GPIO6, 31
-  const int BLUE_PIN = 389; // GPIO13, 33
+  bool redState_;
+  bool greenState_;
+  bool blueState_;
 public:
-  LightController() {
+  LightController() :
+    redState_(false),
+    greenState_(false),
+    blueState_(false)
+  {
     /* Echo out direction to the gpio pins in /sys/class/gpio/ after export*/
     system("echo 398 > /sys/class/gpio/export");
     system("echo 298 > /sys/class/gpio/export");
@@ -57,21 +61,43 @@ public:
     system("echo out > /sys/class/gpio/gpio389/direction");
 
     /* Set initial state to off */
-    setLight(RED, false);
-    setLight(GREEN, false);
-    setLight(BLUE, false);
+    closeLight(RED);
+    closeLight(GREEN);
+    closeLight(BLUE);
   }
 
-  void setLight(int id, bool state) {
+  void setLight(LED id) {
     switch (id) {
       case RED:
-        system("echo " + std::to_string(state) + " > /sys/class/gpio/gpio398/value");
+        system("echo 1 > /sys/class/gpio/gpio398/value");
+        redState_ = true;
         break;
       case GREEN:
-        system("echo " + std::to_string(state) + " > /sys/class/gpio/gpio298/value");
+        system("echo 1 > /sys/class/gpio/gpio298/value");
+        greenState_ = true;
         break;
       case BLUE:
-        system("echo " + std::to_string(state) + " > /sys/class/gpio/gpio389/value");
+        system("echo 1 > /sys/class/gpio/gpio389/value");
+        blueState_ = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  void closeLight(LED id) {
+    switch (id) {
+      case RED:
+        system("echo 0 > /sys/class/gpio/gpio398/value");
+        redState_ = false;
+        break;
+      case GREEN:
+        system("echo 0 > /sys/class/gpio/gpio298/value");
+        greenState_ = false;
+        break;
+      case BLUE:
+        system("echo 0 > /sys/class/gpio/gpio389/value");
+        blueState_ = false;
         break;
       default:
         break;
