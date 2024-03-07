@@ -78,16 +78,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  tf2_geometry_msgs
-  ozurover_messages
-  geometry_msgs
-  sensor_msgs
-  std_msgs
-  std_srvs
-  nav_msgs
-)
+#generate_messages(
+#  DEPENDENCIES
+#  ozurover_messages
+#)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
