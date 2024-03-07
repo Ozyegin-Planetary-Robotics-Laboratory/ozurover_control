@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+from std_msgs.msg import UInt8MultiArray
 from sensor_msgs.msg import Joy
 from ozurover_messages.msg import Steer
 from TMotorCANControl.servo_can import TMotorManager_servo_can
@@ -17,23 +18,6 @@ wheel_speeds = [.0, .0, .0, .0]
 teleoperation = False
 teleoperation_counter = 0
 
-# ROS Callbacks
-def cmd_callback(data):
-  global wheel_speeds
-  global k_c
-  x = data.speed
-  w = data.angle
-  wheel_speeds[0] = x + (w)*k_c/2.0
-  wheel_speeds[1] = x - (w)*k_c/2.0
-  wheel_speeds[2] = x - (w)*k_c/2.0
-  wheel_speeds[3] = x + (w)*k_c/2.0
-
-def joy_callback(data):
-  global wheel_speeds
-  wheel_speeds[0] = -data.axes[4]
-  wheel_speeds[1] = data.axes[1]
-  wheel_speeds[2] = data.axes[1]
-  wheel_speeds[3] = -data.axes[4]
 
 # Main
 if __name__=="__main__":
@@ -43,7 +27,9 @@ if __name__=="__main__":
       with TMotorManager_servo_can(motor_type="AK70-10", motor_ID=3) as motor3:
         with TMotorManager_servo_can(motor_type="AK70-10", motor_ID=4) as motor4:
           
-          # Motor Control Thread    
+          pub = rospy.Publisher("led", UInt8MultiArray, queue_size=10)
+          
+          # Control Threads    
           def update_loop():
             global wheel_speeds
             speed_coeff = 10.0
@@ -58,7 +44,6 @@ if __name__=="__main__":
               motor4.update()
               time.sleep(0.05)
           
-          # Velocity Decay Thread
           def decay_loop():
             global wheel_speeds
             global teleoperation
@@ -68,11 +53,36 @@ if __name__=="__main__":
                 wheel_speeds[i] *= 0.9
               if teleoperation:
                 teleoperation_counter += 1
-                if teleoperation_counter > 10:
+                if teleoperation_counter > 3:
                   teleoperation = False
                   teleoperation_counter = 0
-              time.sleep(0.1)
+              time.sleep(1.0)
           
+          # ROS Callbacks
+          def cmd_callback(data):
+            global wheel_speeds
+            global k_c
+            x = data.speed
+            w = data.angle
+            wheel_speeds[0] = x + (w)*k_c/2.0
+            wheel_speeds[1] = x - (w)*k_c/2.0
+            wheel_speeds[2] = x - (w)*k_c/2.0
+            wheel_speeds[3] = x + (w)*k_c/2.0
+
+          def joy_callback(data):
+            global wheel_speeds
+            global teleoperation
+            global teleoperation_counter
+            pub.publish([0, 0])
+            pub.publish([1, 0])
+            pub.publish([2, 1])
+            teleoperation = True
+            teleoperation_counter = 0
+            wheel_speeds[0] = -data.axes[4]
+            wheel_speeds[1] = data.axes[1]
+            wheel_speeds[2] = data.axes[1]
+            wheel_speeds[3] = -data.axes[4]
+            
           # start motors
           motor1.enter_velocity_control()
           motor2.enter_velocity_control()

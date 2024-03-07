@@ -9,6 +9,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/utils.h>
 
+#include <std_msgs/UInt8MultiArray.h>
 #include <std_srvs/Empty.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
@@ -35,10 +36,10 @@ enum State {
   ABORTING
 };
 
-enum LED {
-  RED = 398,
-  GREEN = 298,
-  BLUE = 389
+enum LEDState {
+  MANUAL,     // BLUE
+  AUTONOMOUS, // RED
+  SUCCESS     // FLASHING GREEN
 };
 
 class StateMachineNode {
@@ -52,6 +53,7 @@ protected:
   ros::Subscriber mapSub_;
   ros::Subscriber gnssSub_;
   ros::Subscriber markerSub_;
+  ros::Publisher RGBPub_;
   tf2_ros::Buffer _tfBuffer;
   tf2_ros::TransformListener _tfListener;
   ros::AsyncSpinner _spinner;
@@ -64,6 +66,48 @@ protected:
   std::map<uint16_t, geometry_msgs::PoseStamped> markers_;  
   nav_msgs::OccupancyGrid::ConstPtr obstacle_grid;
   OccupancyUtils occupancyUtils_;
+
+  void setRGB(LEDState s) {
+    std_msgs::UInt8MultiArray msg;
+    switch (s)
+    {
+    case AUTONOMOUS:
+      msg.data = {0, 1};
+      RGBPub_.publish(msg);
+      msg.data = {1, 0};
+      RGBPub_.publish(msg);
+      msg.data = {2, 0};
+      RGBPub_.publish(msg);
+      break;
+    case MANUAL:
+      msg.data = {0, 0};
+      RGBPub_.publish(msg);
+      msg.data = {1, 1};
+      RGBPub_.publish(msg);
+      msg.data = {2, 0};
+      RGBPub_.publish(msg);
+      break;
+    case SUCCESS:
+      msg.data = {0, 0};
+      RGBPub_.publish(msg);
+      msg.data = {1, 0};
+      RGBPub_.publish(msg);
+      msg.data = {2, 1};
+      RGBPub_.publish(msg);
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      msg.data = {2, 0};
+      RGBPub_.publish(msg);
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      msg.data = {2, 1};
+      RGBPub_.publish(msg);
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      msg.data = {2, 0};
+      RGBPub_.publish(msg);
+      break;
+    default:
+      break;
+    }
+  }
 
   void gnssCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     rover_gps_.latitude = msg->latitude;
@@ -161,6 +205,7 @@ public:
     pc_ = nh_.serviceClient<ozurover_messages::Pathfind>("ares/pathfind");
     gc_ = nh_.serviceClient<ozurover_messages::GetMarker>("ares/goal/dequeue");
     lc_ = nh_.serviceClient<ozurover_messages::Abort>("ares/localize");
+    RGBPub_ = nh_.advertise<std_msgs::UInt8MultiArray>("ares/led", 1);
     mapSub_ = nh_.subscribe("ares/map/obstacles", 1, &StateMachineNode::mapCallback, this);
     gnssSub_ = nh_.subscribe("ares/gps", 1, &StateMachineNode::gnssCallback, this);
     markerSub_ = nh_.subscribe("ares/goal/marker", 1, &StateMachineNode::markerCallback, this);
@@ -169,7 +214,6 @@ public:
   }
 
   void run() {
-    /* Initialize other threads.*/
     _spinner.start();
     std::thread updateThread(&StateMachineNode::updateInternalData, this);
     updateThread.detach();
@@ -178,22 +222,25 @@ public:
         case IDLE:
           if (checkNewTask()) {
             state_ = VISITING;
+            setRGB(AUTONOMOUS);
             visitCurrentGoal();
           }
           continue;
-        case VISITING: // Moving towards the given coordinates
+        case VISITING:
           {
+            setRGB(AUTONOMOUS);
             actionlib::SimpleClientGoalState tracerState = ac_.getState();
             switch (tracerState.state_) {
               case actionlib::SimpleClientGoalState::StateEnum::SUCCEEDED:
                 if (goal_.type == 1002) { 
-                  state_ = IDLE; // If goal has no visual indicator, wrap up.
+                  state_ = IDLE;
+                  setRGB(SUCCESS);
                 } else {
-                  state_ = EXPLORING; // If goal has visual indicator, start exploring.
+                  state_ = EXPLORING;
                 }
                 break;
               case actionlib::SimpleClientGoalState::StateEnum::ABORTED:
-                visitCurrentGoal(); // Retry visiting
+                visitCurrentGoal();
                 break;
               case actionlib::SimpleClientGoalState::StateEnum::ACTIVE:
                 if (checkPathCollisions(path_)) {
@@ -205,12 +252,13 @@ public:
             }
           }
           break;
-        case EXPLORING: // Roaming around visited area until marker is found.
+        case EXPLORING:
           {
+            setRGB(AUTONOMOUS);
             actionlib::SimpleClientGoalState tracerState = ac_.getState();
             ros::Rate rate(1.0f);
             while (markers_.find(goal_.type) == markers_.end()) {
-              /* Implement protocol here. */
+              /* Implement exploration protocol here. */
               rate.sleep();
             }
             state_ = CONVERGING;
@@ -218,6 +266,7 @@ public:
         case CONVERGING:
           /* Implement convergence protocol. */
           {
+            setRGB(AUTONOMOUS);
             actionlib::SimpleClientGoalState tracerState = ac_.getState();
             geometry_msgs::PoseStamped markerGoal = markers_.find(goal_.type)->second;
             ros::Rate rate(5.0f);
