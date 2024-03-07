@@ -21,7 +21,7 @@
 #include <ozurover_messages/FollowPathAction.h>
 #include <ozurover_messages/Steer.h>
 #include <ozurover_messages/GPSLocalize.h>
-#include "occupancy_utils.hpp"
+#include "occupancy.hpp"
 
 #include <thread>
 
@@ -39,72 +39,6 @@ enum LED {
   RED = 398,
   GREEN = 298,
   BLUE = 389
-};
-
-class LightController {
-protected:
-  bool redState_;
-  bool greenState_;
-  bool blueState_;
-public:
-  LightController() :
-    redState_(false),
-    greenState_(false),
-    blueState_(false)
-  {
-    /* Echo out direction to the gpio pins in /sys/class/gpio/ after export*/
-    system("echo 398 > /sys/class/gpio/export");
-    system("echo 298 > /sys/class/gpio/export");
-    system("echo 389 > /sys/class/gpio/export");
-
-    /* Set direction to out */
-    system("echo out > /sys/class/gpio/gpio398/direction");
-    system("echo out > /sys/class/gpio/gpio298/direction");
-    system("echo out > /sys/class/gpio/gpio389/direction");
-
-    /* Set initial state to off */
-    closeLight(RED);
-    closeLight(GREEN);
-    closeLight(BLUE);
-  }
-
-  void setLight(LED id) {
-    switch (id) {
-      case RED:
-        system("echo 1 > /sys/class/gpio/gpio398/value");
-        redState_ = true;
-        break;
-      case GREEN:
-        system("echo 1 > /sys/class/gpio/gpio298/value");
-        greenState_ = true;
-        break;
-      case BLUE:
-        system("echo 1 > /sys/class/gpio/gpio389/value");
-        blueState_ = true;
-        break;
-      default:
-        break;
-    }
-  }
-
-  void closeLight(LED id) {
-    switch (id) {
-      case RED:
-        system("echo 0 > /sys/class/gpio/gpio398/value");
-        redState_ = false;
-        break;
-      case GREEN:
-        system("echo 0 > /sys/class/gpio/gpio298/value");
-        greenState_ = false;
-        break;
-      case BLUE:
-        system("echo 0 > /sys/class/gpio/gpio389/value");
-        blueState_ = false;
-        break;
-      default:
-        break;
-    }
-  }
 };
 
 class StateMachineNode {
@@ -248,40 +182,46 @@ public:
           }
           continue;
         case VISITING: // Moving towards the given coordinates
-          {actionlib::SimpleClientGoalState tracerState = ac_.getState();
-          switch (tracerState.state_) {
-            case actionlib::SimpleClientGoalState::StateEnum::SUCCEEDED:
-              if (goal_.type == 1002) { 
-                state_ = IDLE; // If goal has no visual indicator, wrap up.
-              } else {
-                state_ = EXPLORING; // If goal has visual indicator, start exploring.
-              }
-              break;
-            case actionlib::SimpleClientGoalState::StateEnum::ABORTED:
-              visitCurrentGoal(); // Retry visiting
-              break;
-            case actionlib::SimpleClientGoalState::StateEnum::ACTIVE:
-              if (checkPathCollisions(path_)) {
-                visitCurrentGoal();
-              }
-              break;
-            default:
-              break;
-          }}
+          {
+            actionlib::SimpleClientGoalState tracerState = ac_.getState();
+            switch (tracerState.state_) {
+              case actionlib::SimpleClientGoalState::StateEnum::SUCCEEDED:
+                if (goal_.type == 1002) { 
+                  state_ = IDLE; // If goal has no visual indicator, wrap up.
+                } else {
+                  state_ = EXPLORING; // If goal has visual indicator, start exploring.
+                }
+                break;
+              case actionlib::SimpleClientGoalState::StateEnum::ABORTED:
+                visitCurrentGoal(); // Retry visiting
+                break;
+              case actionlib::SimpleClientGoalState::StateEnum::ACTIVE:
+                if (checkPathCollisions(path_)) {
+                  visitCurrentGoal();
+                }
+                break;
+              default:
+                break;
+            }
+          }
           break;
         case EXPLORING: // Roaming around visited area until marker is found.
-          {actionlib::SimpleClientGoalState tracerState = ac_.getState();
-          ros::Rate rate(1.0f);
-          while (markers_.find(goal_.type) == markers_.end()) {
-            /* Implement protocol here. */
-            rate.sleep();
+          {
+            actionlib::SimpleClientGoalState tracerState = ac_.getState();
+            ros::Rate rate(1.0f);
+            while (markers_.find(goal_.type) == markers_.end()) {
+              /* Implement protocol here. */
+              rate.sleep();
+            }
+            state_ = CONVERGING;
           }
-          state_ = CONVERGING;}
         case CONVERGING:
           /* Implement convergence protocol. */
-          {actionlib::SimpleClientGoalState tracerState = ac_.getState();
-          geometry_msgs::PoseStamped markerGoal = markers_.find(goal_.type)->second;
-          ros::Rate rate(5.0f);}
+          {
+            actionlib::SimpleClientGoalState tracerState = ac_.getState();
+            geometry_msgs::PoseStamped markerGoal = markers_.find(goal_.type)->second;
+            ros::Rate rate(5.0f);
+          }
           break;
         case ABORTING:
           /* Implement abort protocol. */

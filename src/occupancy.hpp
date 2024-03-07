@@ -35,6 +35,15 @@ void OccupancyUtils::openOccupancyGrid(const nav_msgs::OccupancyGrid::ConstPtr &
   obstacle_grid = grid_msg;
 }
 
+bool OccupancyUtils::isCollisionCourse(const nav_msgs::Path &path) {
+  for (size_t i = 0; i < path.poses.size() - 1; i++) {
+    if (isBlocked_(getLine_(path.poses[i], path.poses[i + 1]))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 size_t OccupancyUtils::getIndex_(const geometry_msgs::PoseStamped &pose) {
   Point p = getIndices_(pose);
   return getIndex_(p[0], p[1]);
@@ -86,3 +95,13 @@ OccupancyUtils::Line OccupancyUtils::getLine_(const Point &p1, const Point &p2) 
   }
   return line;
 }
+
+bool OccupancyUtils::isBlocked_(const Line &line) {
+  for (const auto &p : line) {
+    if (obstacle_grid->data[getIndex_(p[0], p[1])] > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+

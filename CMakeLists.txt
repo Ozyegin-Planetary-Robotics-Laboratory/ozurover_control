@@ -8,10 +8,19 @@ project(ozurover_control)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-        ozurover_messages
-        roscpp
-        std_msgs
-        
+  roscpp
+  rospy
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  ozurover_messages
+  geometry_msgs
+  sensor_msgs
+  std_msgs
+  std_srvs
+  nav_msgs
+  actionlib
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -69,10 +78,16 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  tf2_geometry_msgs
+  ozurover_messages
+  geometry_msgs
+  sensor_msgs
+  std_msgs
+  std_srvs
+  nav_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -89,10 +104,9 @@ find_package(catkin REQUIRED COMPONENTS
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+generate_dynamic_reconfigure_options(
+    cfg/PathtracerPID.cfg
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -131,12 +145,22 @@ include_directories(
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(pathtracer src/pid.cpp src/pathtracer.cpp src/pid.cpp)
+target_link_libraries(pathtracer ${catkin_LIBRARIES})
+add_dependencies(pathtracer ${catkin_EXPORTED_TARGETS})
+add_dependencies(pathtracer ${PROJECT_NAME}_gencfg)
+
 add_executable(queue_node src/queue.cpp)
-add_executable(pathfinding_node src/pathfinder.cpp)
-
 target_link_libraries(queue_node ${catkin_LIBRARIES})
-target_link_libraries(pathfinding_node ${catkin_LIBRARIES})
+add_dependencies(queue_node ${catkin_EXPORTED_TARGETS})
 
+add_executable(pathfinding_node src/pathfinder.cpp)
+target_link_libraries(pathfinding_node ${catkin_LIBRARIES})
+add_dependencies(pathfinding_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(statemachine_node src/statemachine.cpp)
+target_link_libraries(statemachine_node ${catkin_LIBRARIES})
+add_dependencies(statemachine_node ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
@@ -167,10 +191,11 @@ target_link_libraries(pathfinding_node ${catkin_LIBRARIES})
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  scripts/locomote.py
+  scripts/led.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
