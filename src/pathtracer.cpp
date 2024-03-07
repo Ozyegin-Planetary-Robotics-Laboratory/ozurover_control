@@ -14,7 +14,7 @@
 #include <nav_msgs/Path.h>
 #include <std_msgs/Float32.h>
 #include <ozurover_messages/FollowPathAction.h>
-#include "../includes/pid.h"
+#include "../include/pid.h"
 
 #define CONTROL_FREQ 200.0f
 
@@ -188,7 +188,7 @@ public:
     _refPose.header.frame_id = "map";
     _control.angular.z = 0.0f;
     _control.linear.x = 0.0f;
-    _controlPub = _nh.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
+    _controlPub = _nh.advertise<geometry_msgs::Twist>("/ares/cmd_vel", 1);
     _refPub = _nh.advertise<geometry_msgs::PoseStamped>("/ares/ref_pose", 1);
     _errPub = _nh.advertise<std_msgs::Float32>("/ares/error", 1); 
     _pathServer.start();

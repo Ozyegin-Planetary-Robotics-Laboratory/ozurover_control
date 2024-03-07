@@ -4,12 +4,11 @@
 #include <array>
 
 
-class OccupancyUtils
-{
+class OccupancyUtils {
 private:
   typedef std::array<int, 2> Point;
   typedef std::vector<Point> Line;
-  nav_msgs::OccupancyGrid::Ptr obstacle_grid;
+  nav_msgs::OccupancyGrid::ConstPtr obstacle_grid;
   size_t getIndex_(const geometry_msgs::PoseStamped &pose);
   size_t getIndex_(const int &i1, const int &i2);
   Point getIndices_(const geometry_msgs::PoseStamped &pose);
@@ -104,4 +103,3 @@ bool OccupancyUtils::isBlocked_(const Line &line) {
   }
   return false;
 }
-

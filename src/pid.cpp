@@ -1,6 +1,6 @@
-#include "../includes/pid.h"
+#include "../include/pid.h"
 
-void  PIDController_Reset(PIDController *pid) {
+void PIDController_Reset(PIDController *pid) {
   pid->integrator = 0.0f;
   pid->prevError  = 0.0f;
   pid->differentiator  = 0.0f;
