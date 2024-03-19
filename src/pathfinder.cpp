@@ -75,7 +75,7 @@ nav_msgs::Path smoothPath(const nav_msgs::Path& original_path, int num_iteration
        // Average the positions of neighboring waypoints
        geometry_msgs::PoseStamped new_pose;
        new_pose.pose.position.x = (temp_path.poses[i-1].pose.position.x+temp_path.poses[i].pose.position.x + temp_path.poses[i + 1].pose.position.x) / 3.0;
-       new_pose.pose.position.y = (temp_path.poses[i-1].pose.position.y+temp_path.poses[i].pose.position.y+temp_path.poses[i + 1].pose.position.y) / 30;
+       new_pose.pose.position.y = (temp_path.poses[i-1].pose.position.y+temp_path.poses[i].pose.position.y+temp_path.poses[i + 1].pose.position.y) / 3.0;
        // Calculate orientation based on the direction to the next pose
        new_pose.pose.orientation = calculateOrientation(temp_path.poses[i], temp_path.poses[i + 1]);
        // Check collision at the new position
