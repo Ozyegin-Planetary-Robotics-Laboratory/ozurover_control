@@ -31,19 +31,17 @@ public:
   double stepSize;
 };
 
-RRT::RRT(geometry_msgs::PoseStamped start, geometry_msgs::PoseStamped goal, double minX, double minY, double maxX, double maxY, double stepSize) :
-    start(start),
-    goal(goal),
-    minX(minX),
-    minY(minY),
-    maxX(maxX),
-    maxY(maxY),
+RRT::RRT(geometry_msgs::PoseStamped start, geometry_msgs::PoseStamped goal, double minX, double minY, double maxX, double maxY, double stepSize)
+  : start(start), goal(goal), minX(std::min(start.pose.position.x, goal.pose.position.x) - 1.0), 
+    minY(std::min(start.pose.position.y, goal.pose.position.y) - 1.0), 
+    maxX(std::max(start.pose.position.x, goal.pose.position.x) + 1.0), 
+    maxY(std::max(start.pose.position.y, goal.pose.position.y) + 1.0), 
     stepSize(stepSize)
-  {
+    {
     nodes.push_back(start);
     parentIndices.push_back(0);
     srand(time(0));
-  }
+}
 
 geometry_msgs::PoseStamped RRT::randomPose() {
   double x = minX + static_cast<double>(rand()) / RAND_MAX * (maxX - minX);
