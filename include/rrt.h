@@ -16,7 +16,6 @@ struct Point {
 class RRT {
 public:
   RRT(geometry_msgs::PoseStamped start, geometry_msgs::PoseStamped goal, double minX, double minY, double maxX, double maxY, double stepSize);
-  void generateRRT(int iterations);
   nav_msgs::Path getPath();
   geometry_msgs::PoseStamped randomPose();
   int nearestNeighborIndex(geometry_msgs::PoseStamped target);
